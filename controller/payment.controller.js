@@ -1,4 +1,4 @@
-import razorpay from "../dbconnect/connectRazorePay.js";
+import razorpay from "../connectons/connectRazorPay.js";
 
 const makePayment = async (req, res) => {
     try {

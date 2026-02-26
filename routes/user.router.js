@@ -3,7 +3,7 @@ import UserController from "../controller/user.controller.js";
 import authUser from "../middlewares/auth.middleware.js";
 import verifyResetToken from "../middlewares/verifyResetToken.js";
 import { body } from "express-validator";
-import * as TwilioController from "../controller/twilio.controller.js"
+import TwilioController from "../controller/twilio.controller.js"
 
 const userRoute = express.Router();
 

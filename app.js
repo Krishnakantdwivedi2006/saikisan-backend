@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
-import connectDB from "./dbconnect/connectDB.js";
+import connectDB from "./connectons/connectDB.js";
 
 import userRoute from "./routes/user.router.js";
 import kishanRoute from "./routes/kishan.router.js";
@@ -11,8 +11,6 @@ import AppVehicleRoute from "./routes/appVehicle.router.js";
 import paymentRoute from "./routes/payment.router.js";
 import cors from 'cors';
 
-
-// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -27,7 +25,7 @@ app.use(cors());
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Backend API is running 🚀"
+    message: "Backend API is running "
   });
 });
 
