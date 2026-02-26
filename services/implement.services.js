@@ -24,18 +24,22 @@ class ImplementServices {
     }
 
     static async getAll(query = {}) {
-        const { category, equipmentName, rateType, sort } = query;
-        let filters = {};
+    const { category, equipmentName, rateType, sort } = query;
+    let filters = {};
 
-        // Professional Filtering Logic
-        if (category) filters.category = category;
-        if (equipmentName) filters.equipmentName = equipmentName;
-        if (rateType) filters.rateType = rateType;
-
-        return await ImplementsModel.find(filters)
-            .sort(sort || "-createdAt") // Default to newest first
-            .lean();
+    if (category) {
+        // If it's a comma-separated string, turn it into an array
+        const categoryArray = category.split(',');
+        filters.category = { $in: categoryArray }; 
     }
+    
+    if (equipmentName) filters.equipmentName = equipmentName;
+    if (rateType) filters.rateType = rateType;
+
+    return await ImplementsModel.find(filters)
+        .sort(sort || "-createdAt")
+        .lean();
+}
 }
 
 export default ImplementServices;
