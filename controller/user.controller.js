@@ -313,6 +313,8 @@ class UserController {
         try {
             const userId = req.user.id; 
             const payload = req.body; 
+            console.log(payload);
+            
 
             const result = await UserServices.updateProfile(userId, payload);
 

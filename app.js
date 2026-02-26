@@ -8,11 +8,12 @@ import kishanRoute from "./routes/kishan.router.js";
 import chalakRoute from "./routes/chalak.router.js";
 import implementRoute from "./routes/implement.router.js";
 import AppVehicleRoute from "./routes/appVehicle.router.js";
+import paymentRoute from "./routes/payment.router.js";
 import cors from 'cors';
 
 
 // Load environment variables
-dotenv.config(); // ✅ Render automatically injects env vars
+dotenv.config();
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use("/users/kishan", kishanRoute);
 app.use("/users/chalak", chalakRoute);
 app.use("/implement", implementRoute);
 app.use("/vehicle",AppVehicleRoute);
+app.use("/payment",paymentRoute);
 
 // Port (Render provides PORT)
 const PORT = process.env.PORT || 10000;

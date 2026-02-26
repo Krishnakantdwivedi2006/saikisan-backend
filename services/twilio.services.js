@@ -2,9 +2,9 @@ import twilio from 'twilio';
 import UserModel from '../model/user.model.js';
 import KishanModel from '../model/kishan.model.js';
 
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
+const TWILIO_ACCOUNT_SID = "AC01c73ed0fa133e30c87a4a774c8333c9";
+const TWILIO_AUTH_TOKEN = "390c7fe6bcf9eafa86fef767ca186618";
+const TWILIO_VERIFY_SERVICE_SID = "VAd3dc2578e67be7d5b19a19dd44a9304e";
 
 // Create the client instance once
 const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);

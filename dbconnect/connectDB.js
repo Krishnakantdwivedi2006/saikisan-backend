@@ -1,16 +1,3 @@
-// import mongoose from "mongoose";
-
-// const connectDB = async (MONGO_URI, DB_NAME)=>{
-//     try {
-//         await mongoose.connect(MONGO_URI + DB_NAME);
-//          console.log('Database connected Successfully!!!')
-//     } catch (error) {
-//         console.log('Database error!!!', error);
-//     }
-// }
-
-// export default connectDB
-
 import mongoose from "mongoose";
 
 const connectDB = async (MONGO_URI) => {

@@ -37,8 +37,8 @@ const userSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      lowercase: true,
-      enum: ["male", "female","non-binary", "other"],
+      // lowercase: true,
+      enum: ["Male", "Female","Non-Binary", "Other"],
 
     },
     refreshToken: {

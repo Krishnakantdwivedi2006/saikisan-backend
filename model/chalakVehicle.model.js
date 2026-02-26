@@ -4,7 +4,7 @@ const chalakVehicleSchema= new mongoose.Schema(
   {
     chalakId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Chalak", // or Operator / Captain model
+      ref: "Chalak",
       required: true
     },
 

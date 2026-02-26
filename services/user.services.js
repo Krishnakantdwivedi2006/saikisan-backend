@@ -290,8 +290,8 @@ class UserServices {
         if (!user) throw new Error("User not found");
 
         return {
-            name:user.name,
-            roles:user.roles
+            name: user.name,
+            roles: user.roles
         };
     };
 
