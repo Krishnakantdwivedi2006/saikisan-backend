@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const chalakVehicleSchema= new mongoose.Schema(
+const chalakVehicleSchema = new mongoose.Schema(
   {
     chalakId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -8,32 +8,22 @@ const chalakVehicleSchema= new mongoose.Schema(
       required: true
     },
 
-    equipmentType: {
+    vehicleType: {
       type: String,
-      enum: [
-        "tractor",
-        "harvester",
-        "thresher",
-        "baler",
-        "other"
-      ],
       required: true
     },
 
     brand: {
       type: String,
-      // e.g. "massy", "mahindra", "powertrac"
       required: true
     },
 
     model: {
       type: String
-      // e.g. "46ppi", "42500"
     },
 
     powerCapacity: {
       type: String
-      // e.g. "45 HP", "60 HP"
     },
 
     fuelType: {
@@ -44,54 +34,16 @@ const chalakVehicleSchema= new mongoose.Schema(
 
     registrationNumber: {
       type: String,
-      unique: true,
-      sparse: true // some equipment may not have RC
+      sparse: true,
+      uppercase: true
     },
 
-    usageType: {
+    rcImage: {
       type: String,
-      enum: ["ownFarm", "rental", "both"],
-      default: "rental"
-    },
-
-    rateType: {
-      type: String,
-      enum: ["perHour", "perAcre", "fixed"],
       required: true
     },
 
-    rate: {
-      type: Number,
-      required: true
-    },
-
-    availability: {
-      type: String,
-      enum: ["available", "booked", "maintenance"],
-      default: "available"
-    },
-
-    currentLocation: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point"
-      },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-        index: "2dsphere"
-      }
-    },
-
-    insuranceExpiry: {
-      type: Date
-    },
-
-    lastMaintenanceDate: {
-      type: Date
-    },
-
-    images: [String],
+    vehicleImages: [String],
 
     isApprovedByAdmin: {
       type: Boolean,
@@ -100,7 +52,6 @@ const chalakVehicleSchema= new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 
 const ChalakVehicleModel = mongoose.model("ChalakVehicle", chalakVehicleSchema);
 

@@ -1,88 +1,71 @@
-import ChalakVehicleModel from "../model/chalakVehicle.model";
-import ChalakEquipmentModel from "../model/chalakEquipment.model";
-import BookingModel from "../model/booking.model";
+import BookingModel from "../model/booking.model.js";
+import KisanModel from "../model/kisan.model.js";
 
 class BookingController {
 
     static createBooking = async (req, res) => {
         try {
-            const farmerId = req.user.id;
-            const {
-                vehicleId,
-                equipmentIds = [],
-                workType,
-                bookingDate,
-                rateType,
-                rate,
-                landArea,
-                expectedDurationHours
-            } = req.body;
+            const kisanId = req.kisanId;
+            const kisan = await KisanModel.findById(kisanId);
 
-            // 🔍 Check vehicle
-            const vehicle = await ChalakVehicleModel.findById(vehicleId);
-            if (!vehicle || vehicle.availability !== "available") {
-                return res.status(400).json({ message: "Vehicle not available" });
-            }
+            // // ❌ Prevent coin usage for COD
+            // if (paymentMode === "cash" && saikisanCoinUsed > 0) {
+            //     return res.status(400).json({
+            //         success: false,
+            //         message: "Saikisan coin allowed only for ONLINE payments",
+            //     });
+            // }
 
-            // 🔍 Check equipments
-            const equipments = await ChalakEquipmentModel.find({
-                _id: { $in: equipmentIds },
-                availability: "available"
-            });
+            // // // ❌ Check coin balance
+            // if (saikisanCoinUsed > kisan.saikisanCoin) {
+            //     return res.status(400).json({
+            //         success: false,
+            //         message: "Insufficient Saikisan coin balance",
+            //     });
+            // }
 
-            if (equipments.length !== equipmentIds.length) {
-                return res.status(400).json({ message: "One or more equipments unavailable" });
-            }
+            // // // ❌ Check wallet balance
+            // if (walletAmountUsed > kisan.walletBalance) {
+            //     return res.status(400).json({
+            //         success: false,
+            //         message: "Insufficient wallet balance",
+            //     });
+            // }
 
-            // 💰 Calculate total amount
-            let totalAmount = 0;
-            if (rateType === "PerHour") {
-                totalAmount = rate * expectedDurationHours;
-            } else if (rateType === "PerAcre") {
-                totalAmount = rate * landArea;
-            } else {
-                totalAmount = rate;
-            }
+            // const finalPayableAmount =
+            //     amount - saikisanCoinUsed - walletAmountUsed;
 
-            const booking = await BookingModel.create({
-                farmerId,
-                chalakId: vehicle.chalakId,
-                vehicleId,
-                equipmentIds,
-                workType,
-                bookingDate,
-                rateType,
-                rate,
-                landArea,
-                expectedDurationHours,
-                totalAmount
-            });
+            // if (finalPayableAmount < 0) {
+            //     return res.status(400).json({
+            //         success: false,
+            //         message: "Invalid payable amount",
+            //     });
+            // }
 
-            // 🔒 Lock vehicle & equipment
-            vehicle.availability = "booked";
-            await vehicle.save();
+            const newBooking = new BookingModel({ ...req.body, kisanId });
 
-            await ChalakEquipmentModel.updateMany(
-                { _id: { $in: equipmentIds } },
-                { availability: "attached", attachedToVehicleId: vehicleId }
-            );
+            await newBooking.save();
 
             res.status(201).json({
+                success: true,
                 message: "Booking created successfully",
-                booking
+                data: newBooking,
             });
-
         } catch (error) {
-            res.status(500).json({ message: error.message });
+            console.error(error.message);
+            res.status(500).json({
+                success: false,
+                message: "Server error",
+            });
         }
     };
 
     static getFarmerBookings = async (req, res) => {
         try {
-            const farmerId = req.user.id;
+            const kisanId = req.kisanId;
 
-            const bookings = await BookingModel.find({ farmerId })
-                .populate("vehicleId equipmentIds chalakId")
+            const bookings = await BookingModel.find({ kisanId })
+                // .populate("vehicleId equipmentIds chalakId")
                 .sort({ createdAt: -1 });
 
             res.json(bookings);
@@ -93,7 +76,7 @@ class BookingController {
 
     static getBookingById = async (req, res) => {
         try {
-            const booking = await Booking.findById(req.params.bookingId)
+            const booking = await BookingModel.findById(req.params.bookingId)
                 .populate("farmerId chalakId vehicleId equipmentIds");
 
             if (!booking) return res.status(404).json({ message: "Booking not found" });

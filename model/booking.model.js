@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 const bookingSchema = new mongoose.Schema(
   {
     // 👨‍🌾 Farmer who books
-    farmerId: {
+    kisanId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Kisan",
       required: true
     },
 
@@ -13,38 +13,23 @@ const bookingSchema = new mongoose.Schema(
     chalakId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Chalak",
-      required: true
+      default: null,
     },
 
     // 🚜 Main vehicle (Tractor / Harvester)
     vehicleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "chalakVehicle",
-      required: true
+      default: null,
     },
 
     // 🔧 Detachable implements
-    equipmentIds: [
+    implementIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "ChalakEquipment"
       }
     ],
-
-    // 🌾 Work details
-    workType: {
-      type: String,
-      enum: [
-        "Ploughing",
-        "Cultivation",
-        "Sowing",
-        "Harvesting",
-        "Spraying",
-        "Transport",
-        "Other"
-      ],
-      required: true
-    },
 
     fieldLocation: {
       address: String,
@@ -55,15 +40,41 @@ const bookingSchema = new mongoose.Schema(
           default: "Point"
         },
         coordinates: {
-          type: [Number] // [lng, lat]
+          type: []
         }
       }
     },
 
+    fieldDetails: [
+      {
+        area: {
+          type: Number,
+          required: true
+        },
+        // We use a GeoJSON Polygon structure for the coordinates
+        location: {
+          type: {
+            type: String,
+            enum: ["Polygon"],
+            default: "Polygon"
+          },
+          coordinates: {
+            type: [[[Number]]], // Array of arrays of [lng, lat]
+          }
+        }
+      }
+    ],
+
     // 📅 Scheduling
     bookingDate: {
       type: Date,
-      required: true
+      required: true,
+      default: Date.now
+    },
+
+    serviceDate: {
+      type: Date,
+      required: true,
     },
 
     expectedDurationHours: {
@@ -71,50 +82,70 @@ const bookingSchema = new mongoose.Schema(
     },
 
     landArea: {
-      type: Number // acres
-    },
-
-    // 💰 Pricing
-    rateType: {
-      type: String,
-      enum: ["PerHour", "PerAcre", "Fixed"],
-      required: true
-    },
-
-    rate: {
-      type: Number,
-      required: true
-    },
-
-    totalAmount: {
-      type: Number,
-      required: true
+      type: Number
     },
 
     platformFee: {
       type: Number,
-      default: 0
+      default: 5
+    },
+
+    paymentMode: {
+      type: String,
+      enum: ["online", "cash"],
+      required: true,
+    },
+
+    paymentMethod: {
+      type: String,
+      enum: ["upi", "razorepay", "card", "wallet", "cash", "scan_pay","wallet_full"],
+      required: true,
+    },
+    paymentId: {
+      type: String
+    },
+    // Total original amount
+    amount: {
+      type: Number,
+      required: true,
+    },
+
+    // 🔹 Saikisan Coin used
+    saikisanCoinUsed: {
+      type: Number,
+      default: 0,
+    },
+
+    // 🔹 Wallet balance used
+    walletAmountUsed: {
+      type: Number,
+      default: 0,
+    },
+
+    // 🔹 Final payable amount after deductions
+    finalPayableAmount: {
+      type: Number,
+      required: true,
     },
 
     paymentStatus: {
       type: String,
-      enum: ["PENDING", "PAID", "FAILED"],
-      default: "PENDING"
+      enum: ["pending", "paid", "failed"],
+      default: "pending",
     },
 
-    // 🔄 Booking lifecycle
-    status: {
+    bookingStatus: {
       type: String,
       enum: [
-        "REQUESTED",
-        "ACCEPTED",
-        "REJECTED",
-        "ON_THE_WAY",
-        "IN_PROGRESS",
-        "COMPLETED",
-        "CANCELLED"
+        "requested",
+        "accepted",
+        "rejected",
+        "on_the_way",
+        "in_progress",
+        "comleted",
+        "cancelled"
       ],
-      default: "REQUESTED"
+      default: "requested",
     },
 
     // ⏱ Actual timings
@@ -134,6 +165,15 @@ const bookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// bookingSchema.pre("save", function (next) {
+//   if (this.paymentMode === "cash" && this.saikisanCoinUsed > 0) {
+//     return next(new Error("Saikisan Coin can only be used for online payments"));
+//   }
+//   next();
+// });
+
+bookingSchema.index({ "fieldDetails.location": "2dsphere" });
 
 const BookingModel = mongoose.model("Booking", bookingSchema);
 

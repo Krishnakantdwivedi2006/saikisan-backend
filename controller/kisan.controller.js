@@ -1,17 +1,16 @@
-import KishanModel from "../model/kishan.model.js";
+import KisanModel from "../model/kisan.model.js";
 import BookingModel from "../model/booking.model.js";
 import { validationResult } from "express-validator";
-import KishanServices from "../services/kishan.services.js";
-import BlacklistTokenModel from "../model/balcklistToken.model.js";
+import KisanServices from "../services/kisan.services.js";
 
-class KishanController {
+class KisanController {
 
   //  Update Kishan Profile
   static updateProfile = async (req, res) => {
     try {
       const userId = req.auth.id;
 
-      const kishan = await KishanModel.findOneAndUpdate(
+      const kishan = await KisanModel.findOneAndUpdate(
         { userId },
         req.body,
         { new: true }
@@ -40,14 +39,14 @@ class KishanController {
         });
       }
 
-      const updatedKishan = await KishanServices.currentLocation({ userId, coordinates });
+      const updatedKisan = await KisanServices.currentLocation({ userId, coordinates });
 
       return res.status(200).json({
         success: true,
         message: "Location synchronized",
         data: {
-          currentLocation: updatedKishan.currentLocation,
-          lastUpdated: updatedKishan.updatedAt
+          currentLocation: updatedKisan.currentLocation,
+          lastUpdated: updatedKisan.updatedAt
         }
       });
 
@@ -66,7 +65,7 @@ class KishanController {
     try {
       const userId = req.user.id;
       console.log(userId);
-      
+
 
       const { area, polygon } = req.body;
 
@@ -115,7 +114,7 @@ class KishanController {
       };
 
       // ---------- Save ----------
-      const updatedUser = await KishanModel.findOneAndUpdate(
+      const updatedUser = await KisanModel.findOneAndUpdate(
         { userId },
         {
           $push: { wishlistFields: wishlistField }
@@ -149,7 +148,6 @@ class KishanController {
     }
   };
 
-
   //  Delete Saved Address
   static removeSavedAddress = async (req, res) => {
     const errors = validationResult(req);
@@ -161,7 +159,7 @@ class KishanController {
 
       const kishan = req.authKishan.account.kishan;
 
-      await KishanServices.deleteSavedAddress({ addressId, kishan });
+      await KisanServices.deleteSavedAddress({ addressId, kishan });
 
       return res.status(200).json({
         success: true,
@@ -181,7 +179,7 @@ class KishanController {
     try {
       const userId = req.auth.id;
 
-      const kishan = await KishanModel.findOne({ userId });
+      const kishan = await KisanModel.findOne({ userId });
       if (!kishan) {
         return res.status(404).json({ message: "Kishan not found" });
       }
@@ -202,19 +200,58 @@ class KishanController {
   //  Wallet Balance
   static getWalletBalance = async (req, res) => {
     try {
-      // req.user is typically populated by your authUser middleware
       const userId = req.user.id;
-
-      const balanceData = await KishanServices.fetchBalance(userId);
-      // console.log('====================================');
-      // console.log(balanceData);
-      // console.log('====================================');
+      const balanceData = await KisanServices.fetchBalance(userId);
 
       return res.status(200).json({
         success: true,
         message: "Wallet balance retrieved successfully",
         data: balanceData
       });
+    } catch (error) {
+      console.log(error.message);
+
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Internal Server Error"
+      });
+    }
+  };
+
+  //update wallet 
+  static updateWalletBalance = async (req, res) => {
+    try {
+      const kisanId = req.kisanId;
+      const { amount, type, reason, description } = req.body;
+      console.log("req.body:", req.body);
+
+      // Basic Validation
+      if (!amount || isNaN(amount) || !type || !reason) {
+        return res.status(400).json({
+          success: false,
+          message: "Amount, Type (credit/debit), and Reason are required",
+        });
+      }
+
+      // Convert amount based on type for the $inc operation
+      // If type is debit, ensure amount is negative for the $inc math
+      const finalAmount = type === 'debit' ? -Math.abs(amount) : Math.abs(amount);
+
+      // Call service
+      const balanceData = await KisanServices.updateBalance(
+        kisanId,
+        finalAmount,
+        type,
+        reason,
+        description
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: type === 'credit' ? "Wallet credited successfully" : "Wallet debited successfully",
+        data: balanceData
+      });
+
     } catch (error) {
       console.log(error.message);
 
@@ -235,12 +272,6 @@ class KishanController {
       user.roles = user.roles.filter(role => role !== "kishan");
       await user.save();
 
-      const token = req.cookies.token;
-      if (token) {
-        await BlacklistTokenModel.create({ token });
-      }
-      res.clearCookie("token");
-
       res.json({ message: "Kishan account deactivated" });
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -249,4 +280,4 @@ class KishanController {
 
 }
 
-export default KishanController;
+export default KisanController;

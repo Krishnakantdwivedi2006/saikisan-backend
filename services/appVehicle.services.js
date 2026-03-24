@@ -1,33 +1,29 @@
-import AppVehicleModel from "../model/appVehicle.model.js";
+import VehicleTypeModel from "../model/vehicleType.model.js";
 
-class appVehicleServices {
-    static createVehicleService = async (vehicleData) => {
-        return await AppVehicleModel.create(vehicleData);
-    };
+class AppVehicleServices {
 
-    static getAllVehiclesService = async () => {
-        return await AppVehicleModel.find({ isActive: true }).sort({ createdAt: -1 });
-    };
+  // Get all vehicle types
+  static async getAllVehicleType() {
+    try {
+      const vehicleTypes = await VehicleTypeModel.find().sort({ createdAt: 1 });
+      return vehicleTypes;
+    } catch (error) {
+      throw new Error("Failed to fetch vehicle types");
+    }
+  }
 
-    static getVehicleByIdService = async (id) => {
-        return await AppVehicleModel.findById(id);
-    };
+  // Add new vehicle type
+  static async addVehicleType(payload) {
+    try {
+      const vehicleType = new VehicleTypeModel(payload);
+      const savedVehicleType = await vehicleType.save();
 
-    static updateVehicleService = async (id, updateData) => {
-        return await AppVehicleModel.findByIdAndUpdate(
-            id,
-            updateData,
-            { new: true, runValidators: true }
-        );
-    };
+      return savedVehicleType;
+    } catch (error) {
+      throw new Error(error.message || "Failed to add vehicle type");
+    }
+  }
 
-    static deleteVehicleService = async (id) => {
-        return await AppVehicleModel.findByIdAndUpdate(
-            id,
-            { isActive: false },
-            { new: true }
-        );
-    };
 }
 
-export default appVehicleServices;
+export default AppVehicleServices;

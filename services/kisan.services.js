@@ -1,7 +1,8 @@
-import KishanModel from "../model/kishan.model.js";
+import KisanModel from "../model/kisan.model.js";
+import TransactionService from "../services/transactions.services.js"
 import mongoose from "mongoose";
 
-class KishanServices {
+class KisanServices {
 
     // models/Kishan.js
     static currentLocation = async ({ userId, coordinates }) => {
@@ -19,7 +20,7 @@ class KishanServices {
         };
 
         // 3. Update or Create
-        const kishan = await KishanModel.findOneAndUpdate(
+        const kishan = await KisanModel.findOneAndUpdate(
             { userId },
             { $set: { currentLocation: geoPoint } }, // Correct field name from your schema
             { new: true, upsert: true, runValidators: true }
@@ -35,7 +36,7 @@ class KishanServices {
     };
 
     static findNearby = async (lng, lat, maxDistanceInMeters = 5000) => {
-        return await KishanModel.find({
+        return await KisanModel.find({
             location: {
                 $near: {
                     $geometry: {
@@ -75,7 +76,7 @@ class KishanServices {
 
     static fetchBalance = async (userId) => {
         // 1. Look up the wallet for the specific user
-        const wallet = await KishanModel.findOne({ userId: userId });
+        const wallet = await KisanModel.findOne({ userId: userId });
         // console.log(wallet);        
 
         if (!wallet) {
@@ -92,6 +93,44 @@ class KishanServices {
         };
     };
 
+     static updateBalance = async (kisanId, amount, type, reason, description = "", referenceId = null, referenceModel = null) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            // Step 1: Call the transaction service.
+            const result = await TransactionService.createWalletTransaction({
+                userId: kisanId,
+                role: "kisan",
+                type: type,
+                amount: Math.abs(amount),
+                reason: reason,
+                description: description,
+                referenceId: referenceId,
+                referenceModel: referenceModel,
+            }, session);
+
+            // Step 2: Commit changes
+            await session.commitTransaction();
+
+            // TransactionService should return the updated user document
+            return {
+                balance: result.updatedUser.walletBalance,
+                currency: 'INR',
+                lastUpdated: result.updatedUser.updatedAt
+            };
+
+        } catch (error) {
+            if (session.inTransaction()) {
+                await session.abortTransaction();
+            }
+            throw error;
+        } finally {
+            session.endSession();
+        }
+    }
+
+
 }
 
-export default KishanServices;
+export default KisanServices;

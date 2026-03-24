@@ -1,79 +1,269 @@
 import ChalakModel from "../model/chalak.model.js"
 import BookingModel from "../model/booking.model.js";
-import UserModel from "../model/user.model.js"
-import { createChalakProfile } from "../services/chalak.services.js"
+import ChalakServices from "../services/chalak.services.js"
 import { validationResult } from "express-validator";
 
 class ChalakController {
 
-    static createChalak = async (req, res) => {
+    static addVehicle = async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
-
         try {
-            const { id: userId } = req.auth;
+            const chalakId = req.chalakId;
 
-            const { vehicleType, documents, currentLocation } = req.body;
+            const rcImage = req.files?.rcImage?.[0]?.path || null;
+            // console.log(rcImage);
 
-            if (!userId) {
-                return res.status(401).json({
-                    success: false,
-                    message: "User not authenticated"
-                });
-            }
+            const vehicleImages =
+                req.files?.images?.map(file => file.path) || [];
 
-            // base user
-            const user = await UserModel.findById(userId);
-            if (!user) {
-                return res.status(401).json({
-                    success: false,
-                    message: "User not found"
-                });
-            }
-
-            // already registered as chalak
-            const alreadyChalak = await ChalakModel.findOne({ userId });
-            if (alreadyChalak) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Chalak already registered"
-                });
-            }
-
-            // create chalak profile
-            const chalak = await createChalakProfile({
-                userId,
-                vehicleType,
-                documents,
-                currentLocation
+            const vehicle = await ChalakServices.addVehicle({
+                ...req.body,
+                chalakId,
+                rcImage,
+                vehicleImages
             });
 
-            // ✅ ADD role (do NOT overwrite)
-            if (!user.roles.includes("chalak")) {
-                user.roles.push("chalak");
-                await user.save();
-            }
-
-            // ✅ generate NEW USER token
-            const token = user.generateAuthToken();
-
-            const chalakDetails = await ChalakModel
-                .findById(chalak._id)
-                .populate("userId", "name email mobile profileImage roles");
-
-            return res.status(201).json({
+            res.status(201).json({
                 success: true,
-                message: "Chalak registered successfully",
-                token,
-                data: chalakDetails
+                message: "Vehicle added successfully",
+                data: vehicle
             });
 
         } catch (error) {
-            return res.status(500).json({
+
+            console.error(error);
+
+            res.status(500).json({
                 success: false,
                 message: error.message
+            });
+
+        }
+
+    };
+
+    static getVehicle = async (req, res) => {
+        try {
+            const chalakId = req.chalakId;
+
+            const vehicles = await ChalakServices.getAllVehicles(chalakId);
+            return res.status(200).json({
+                success: true,
+                message: "fetching vehichle details",
+                data: vehicles
+            })
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({
+                success: false,
+                message: error.message,
+            })
+        }
+    }
+
+    // ChalakController.js
+    static updateVehicle = async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ success: false, errors: errors.array() });
+        }
+
+        try {
+            const { vehicleId, existingImages, ...updateData } = req.body;
+            const chalakId = req.chalakId;
+
+            // 1. Handle RC Image (New file or keep old)
+            const newRcImage = req.files?.rcImage?.[0]?.path;
+
+            // Combine images remaining on the client with newly uploaded files
+            const newlyUploadedImages = req.files?.images?.map(file => file.path) || [];
+            const imagesToKeep = Array.isArray(existingImages)
+                ? existingImages
+                : (existingImages ? [existingImages] : []);
+
+            const finalVehicleImages = [...imagesToKeep, ...newlyUploadedImages];
+
+            const isUpdated = await ChalakServices.updateVehicle(vehicleId, chalakId, {
+                ...updateData,
+                rcImage: newRcImage,
+                vehicleImages: finalVehicleImages
+            });
+
+            console.log("isUpdated :", isUpdated);
+
+
+            return res.status(200).json({
+                success: isUpdated,
+                message: isUpdated ? "Vehicle updated" : "No changes made"
+            });
+
+        } catch (error) {
+            console.error("Update Vehicle Error:", error);
+            return res.status(error.status || 500).json({
+                success: false,
+                message: error.message || "Internal Server Error"
+            });
+        }
+    };
+
+    static getVehicleById = async (req, res) => {
+        const chalakId = req.chalakId;
+        const { itemId } = req.body;
+
+        try {
+            const item = await ChalakServices.getVehicleById({ chalakId, itemId });
+
+            return res.status(200).json({
+                success: true,
+                message: "Vehicle details retrieved successfully",
+                data: item
+            });
+
+        } catch (error) {
+            console.error("Error in getVehicleDetail:", error.message);
+
+            // Use the status code from the error object, or default to 500
+            const statusCode = error.statusCode || 500;
+
+            return res.status(statusCode).json({
+                success: false,
+                message: error.message || "Internal Server Error"
+            });
+        }
+    }
+
+    static addImplement = async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        try {
+            const chalakId = req.chalakId;
+            const {
+                specifications,
+            } = req.body;
+            const parsedSpecifications = specifications
+                ? JSON.parse(specifications)
+                : {};
+
+            const implementImage = req.files?.implement?.[0]?.path || null;
+
+            const Implement = await ChalakServices.addImplement({
+                ...req.body,
+                chalakId,
+                specifications: parsedSpecifications,
+                implementImage
+            });
+
+
+            res.status(201).json({
+                success: true,
+                message: "Implement added successfully",
+                data: Implement
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+
+        }
+
+    };
+
+    static getImplement = async (req, res) => {
+        const chalakId = req.chalakId;
+        const { implementId } = req.body;
+
+        try {
+            const item = await ChalakServices.getImplementById({ chalakId, implementId });
+
+            return res.status(200).json({
+                success: true,
+                message: "Vehicle details retrieved successfully",
+                data: item
+            });
+
+        } catch (error) {
+            console.error("Error in getVehicleDetail:", error.message);
+
+            // Use the status code from the error object, or default to 500
+            const statusCode = error.statusCode || 500;
+
+            return res.status(statusCode).json({
+                success: false,
+                message: error.message || "Internal Server Error"
+            });
+        }
+    }
+
+    static getWalletBalance = async (req, res) => {
+        try {
+            // req.user is typically populated by your authUser middleware
+            const userId = req.user.id;
+
+            const balanceData = await ChalakServices.fetchBalance(userId);
+
+            return res.status(200).json({
+                success: true,
+                message: "Wallet balance retrieved successfully",
+                data: balanceData
+            });
+        } catch (error) {
+            console.log(error.message);
+
+            return res.status(error.statusCode || 500).json({
+                success: false,
+                message: error.message || "Internal Server Error"
+            });
+        }
+    };
+
+    static updateWalletBalance = async (req, res) => {
+        try {
+            const chalakId = req.chalakId;
+            const { amount, type, reason, description } = req.body;
+
+            // Basic Validation
+            if (!amount || isNaN(amount) || !type || !reason) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Amount, Type (credit/debit), and Reason are required",
+                });
+            }
+
+            // Convert amount based on type for the $inc operation
+            // If type is debit, ensure amount is negative for the $inc math
+            const finalAmount = type === 'debit' ? -Math.abs(amount) : Math.abs(amount);
+
+            // Call service
+            const balanceData = await ChalakServices.updateBalance(
+                chalakId,
+                finalAmount,
+                type,
+                reason,
+                description
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: type === 'credit' ? "Wallet credited successfully" : "Wallet debited successfully",
+                data: balanceData
+            });
+
+        } catch (error) {
+            console.log(error.message);
+            
+            return res.status(error.statusCode || 500).json({
+                success: false,
+                message: error.message || "Internal Server Error"
             });
         }
     };
@@ -196,7 +386,7 @@ class ChalakController {
 
     static toggleAvailability = async (req, res) => {
         try {
-            const { status } = req.body; // online / offline
+            const { status } = req.body;
 
             await ChalakModel.findOneAndUpdate(
                 { userId: req.user.id },

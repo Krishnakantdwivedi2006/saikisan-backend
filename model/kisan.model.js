@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const kishanSchema = new mongoose.Schema({
+const kisanSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -8,6 +8,10 @@ const kishanSchema = new mongoose.Schema({
         unique: true
     },
     walletBalance: {
+        type: Number,
+        default: 0
+    },
+    saikisanCoin: {
         type: Number,
         default: 0
     },
@@ -78,22 +82,22 @@ const kishanSchema = new mongoose.Schema({
         min: 1,
         max: 5
     },
-     currentLocation: {
-    type: {
-      type: String,
-      enum: ["Point"],
-      default: "Point"
+    currentLocation: {
+        type: {
+            type: String,
+            enum: ["Point"],
+            default: "Point"
+        },
+        coordinates: {
+            type: [Number], // [lng, lat]
+            default: [0, 0]
+        }
     },
-    coordinates: {
-      type: [Number], // [lng, lat]
-      default: undefined
-    }
-  },
-    totalRides: {
+    totalBookings: {
         type: Number,
         default: 0
     },
-    canceledRides: {
+    canceledBookings: {
         type: Number,
         default: 0
     },
@@ -101,12 +105,17 @@ const kishanSchema = new mongoose.Schema({
         type: String,
         enum: ["upi", "card", "cash", "netbanking", "wallet"],
         default: "cash",
+    },
+    verificationStatus: {
+        type: String,
+        enum: ["pending", "verified", "rejected", "blocked"],
+        default: "pending"
     }
 }, { timestamps: true });
 
-kishanSchema.index({ currentLocation: "2dsphere" });
-kishanSchema.index({ "wishlistFields.polygon": "2dsphere" });
+kisanSchema.index({ currentLocation: "2dsphere" });
+kisanSchema.index({ "wishlistFields.polygon": "2dsphere" });
 
-const KishanModel = mongoose.model("kishan", kishanSchema);
+const KisanModel = mongoose.model("kisan", kisanSchema);
 
-export default KishanModel;
+export default KisanModel;

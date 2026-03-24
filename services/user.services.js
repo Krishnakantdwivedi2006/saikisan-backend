@@ -1,32 +1,34 @@
 import UserModel from "../model/user.model.js";
-import crypto from "crypto";
-import BlacklistTokenModel from "../model/balcklistToken.model.js";
+import ChalakModel from "../model/chalak.model.js";
 import jwt from "jsonwebtoken";
-import twilio from "twilio"
-
+import KisanModel from "../model/kisan.model.js";
+import client, { VERIFY_SERVICE_SID } from "../connectons/connectTwilio.js";
+import AuthSessionModel from "../model/authSesstion.model.js";
+import BlacklistTokenModel from "../model/balcklistToken.model.js";
 class UserServices {
 
-    static refreshSessionService = async (refreshToken) => {
+    static refreshSessionService = async (refreshToken, appType) => {
+        // 1. Verify JWT - If this fails/expires, the catch block in Controller will trigger 401
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-        const isBlacklisted = await BlacklistTokenModel.findOne({ token: refreshToken });
-        if (isBlacklisted) {
-            throw new Error("TOKEN_BLACKLISTED");
-        }
+        // 2. Find existing session
+        const session = await AuthSessionModel.findOne({ refreshToken });
 
-        const user = await UserModel.findOne({ refreshToken });
+        if (!session) throw new Error("TOKEN_NOT_FOUND");
 
-        if (!user) {
-            throw new Error("TOKEN_NOT_FOUND");
-        }
+        // 3. Find User
+        const user = await UserModel.findById(decoded.id);
+        if (!user) throw new Error("USER_NOT_FOUND");
 
         // 4. Generate new pair
-        const newAccessToken = user.generateAccessToken();
-        const newRefreshToken = user.generateRefreshToken();
+        const newAccessToken = user.generateAccessToken(appType);
+        const newRefreshToken = user.generateRefreshToken(appType);
 
-        // 5. Update DB (Rotate token)
-        user.refreshToken = newRefreshToken;
-        await user.save();
+        // 5. Update the existing document
+        session.accessToken = newAccessToken;
+        session.refreshToken = newRefreshToken;
+        session.lastActiveAt = new Date();
+        await session.save();
 
         return {
             accessToken: newAccessToken,
@@ -34,94 +36,191 @@ class UserServices {
         };
     };
 
-    static createUser = async ({ name, email, password, mobile }) => {
-        // 1. Validation check
-        if (!name || !email || !password || !mobile) {
-            throw new Error('All fields are required');
+    static sendOTP = async (phone) => {
+        try {
+            const verification = await client.verify.v2
+                .services(VERIFY_SERVICE_SID)
+                .verifications.create({
+                    to: phone,
+                    channel: "sms",
+                });
+
+            return verification;
+        } catch (error) {
+            console.error("[Twilio Send Error]:", error.message);
+            throw {
+                status: error.status || 500,
+                message: "Failed to send code. Please ensure the number is correct.",
+                code: error.code,
+            };
         }
-
-        // 2. Business Logic: Check if user already exists
-        const existingUser = await UserModel.findOne({
-            $or: [{ email }, { mobile }]
-        });
-
-        if (existingUser) {
-            const field = existingUser.email === email ? "Email" : "Mobile Number";
-            // Throwing a custom error object or a simple message
-            const error = new Error(`${field} is already registered. Please login.`);
-            error.statusCode = 409;
-            throw error;
-        }
-
-        // 3. Data Processing: Hash password
-        const hashpassword = await UserModel.hashPassword(password);
-
-        // 4. Model Interaction: Save to Database
-        const user = await UserModel.create({
-            name,
-            email,
-            mobile,
-            password: hashpassword
-        });
-
-        // Generate token
-        const refreshToken = user.generateRefreshToken();
-        const accessToken = user.generateAccessToken();
-        user.refreshToken = refreshToken;
-        await user.save();
-
-
-        return {
-            user: user.name,
-            refreshToken,
-            accessToken,
-            roles: user.roles
-        };
     };
 
-    static login = async ({ identifier, password }) => {
-        // 'identifier' can be either the email or the mobile number
-        if (!identifier || !password) {
-            const error = new Error("Email/Mobile and password are required");
-            error.statusCode = 401;
+    static verifyOTP = async (phone, code) => {
+        try {
+            const verificationCheck = await client.verify.v2
+                .services(VERIFY_SERVICE_SID)
+                .verificationChecks.create({
+                    to: phone,
+                    code,
+                });
+
+            return verificationCheck;
+        } catch (error) {
+            console.error(`[Twilio Verify Error]: ${error.code} - ${error.message}`);
+            throw {
+                status: error.status || 500,
+                message:
+                    error.status === 404
+                        ? "OTP session expired. Please request a new code."
+                        : "Verification failed. Please try again.",
+                code: error.code,
+            };
+        }
+    };
+
+    static async handleUserSession({ phone, deviceInfo }) {
+        const { appType } = deviceInfo;
+
+        // 1. Check/Create base User
+        let user = await UserModel.findOne({ mobile: phone });
+
+        if (user && user.status === "blocked") {
+            const error = new Error("Your account has been blocked.");
+            error.statusCode = 403;
             throw error;
         }
-
-        // Find user where EITHER email matches OR phone matches
-        const user = await UserModel
-            .findOne({
-                $or: [
-                    { email: identifier },
-                    { mobile: identifier }
-                ]
-            })
-            .select("+password");
 
         if (!user) {
-            // Use a custom property to help the controller
-            const error = new Error("Account not found with this email/mobile");
-            error.type = "NOT_FOUND";
+            user = await UserModel.create({
+                mobile: phone,
+                roles: ["user", appType === "kisan" ? "kisan" : "chalak"],
+                status: "pending"
+            });
+        }
+
+        const isVerified = user.status === "verified";
+        let roleProfile = null;
+
+        // 2. Handle Role-Specific Profile (Chalak or Kisan)
+        if (appType === "chalak") {
+            roleProfile = await ChalakModel.findOne({ userId: user._id });
+            if (!roleProfile) {
+                // User exists but is new to the Chalak app -> Create Profile
+                roleProfile = await ChalakModel.create({
+                    userId: user._id,
+                    verificationStatus: "pending",
+                });
+                // Also ensure the role is added to the User document if not already there
+                if (!user.roles.includes("chalak")) {
+                    user.roles.push("chalak");
+                    await user.save();
+                }
+            }
+        } else if (appType === "kisan") {
+            roleProfile = await KisanModel.findOne({ userId: user._id });
+            if (!roleProfile) {
+                // User exists but is new to the Kisan app -> Create Profile
+                roleProfile = await KisanModel.create({
+                    userId: user._id,
+                    verificationStatus: "pending",
+                });
+                if (!user.roles.includes("kisan")) {
+                    user.roles.push("kisan");
+                    await user.save();
+                }
+            }
+        }
+
+        // 3. Blocked Status Check for specific role
+        if (roleProfile?.verificationStatus === "blocked") {
+            const error = new Error("Your profile for this app is blocked.");
+            error.statusCode = 403;
             throw error;
         }
 
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            const error = new Error("Incorrect password. Please try again.");
-            error.type = "INVALID_PASSWORD";
-            throw error;
-        }
+        // 4. Token Generation
+        const accessToken = user.generateAccessToken(appType);
+        const refreshToken = user.generateRefreshToken(appType);
 
-        // Generate token
-        const refreshToken = user.generateRefreshToken();
-        const accessToken = user.generateAccessToken();
-        user.refreshToken = refreshToken;
-        await user.save();
+        await AuthSessionModel.create({
+            ...deviceInfo,
+            userId: user._id,
+            accessToken,
+            refreshToken,
+        });
 
         return {
-            user: user.name,
-            refreshToken,
+            isVerified,
+            user: {
+                ...user.toObject({ transform: (doc, ret) => { delete ret.__v; return ret; } }),
+                roleProfile: roleProfile
+            },
+            verificationStatus: roleProfile?.verificationStatus || "pending",
             accessToken,
-            roles: user.roles
+            refreshToken
+        };
+    }
+
+    static completeUserProfile = async (
+        userId,
+        profileData,
+        coordinates,
+        deviceInfo
+    ) => {
+
+        const { appType } = deviceInfo;
+
+        if (profileData.dob) {
+            const dobDate = new Date(profileData.dob);
+            dobDate.setUTCHours(0, 0, 0, 0);
+            profileData.dob = dobDate;
+        }
+
+        // 1️⃣ Update User Profile
+        const user = await UserModel.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    ...profileData,
+                    status: "verified"
+                },
+                $addToSet: {
+                    roles: appType
+                }
+            },
+            { new: true, runValidators: true }
+        ).select("-__v");
+
+        if (!user) {
+            throw { status: 404, message: "User not found" };
+        }
+
+        let roleProfile = null;
+
+        const updateData = {
+            userId,
+            currentLocation: { type: "Point", coordinates },
+            status: appType === "chalak" ? "pending" : "verified"
+        };
+
+        // 2️⃣ Role specific profile
+        if (appType === "kisan") {
+            roleProfile = await KisanModel.findOneAndUpdate({ userId }, { $set: updateData }, { upsert: true, new: true }).select("-__v");
+        } else if (appType === "chalak") {
+            roleProfile = await ChalakModel.findOneAndUpdate({ userId }, { $set: updateData }, { upsert: true, new: true }).select("-__v");
+        }
+
+        const accessToken = user.generateAccessToken(appType);
+        const refreshToken = user.generateRefreshToken(appType);
+
+        return {
+            user: {
+                ...user.toObject(),
+                roleProfile: roleProfile
+            },
+            accessToken,
+            refreshToken
         };
     };
 
@@ -137,132 +236,26 @@ class UserServices {
         return user;
     };
 
-    static logout = async (userId, accessToken) => {
-        await UserModel.findByIdAndUpdate(userId, {
-            refreshToken: null
+    static logout = async (userId, accessToken, appType) => {
+        // Attempt to delete the session
+        const deletedSession = await AuthSessionModel.findOneAndDelete({
+            userId: userId,
+            accessToken: accessToken,
+            appType: appType
         });
 
-        if (accessToken) {
-            await BlacklistTokenModel.create({ token: accessToken });
+        // If no session was found to delete, we return false
+        if (!deletedSession) {
+            return { success: false, message: "No active session found" };
         }
+
+        // Create the blacklist entry
+        await BlacklistTokenModel.create({
+            token: accessToken,
+            createdAt: new Date()
+        });
 
         return { success: true };
-    };
-
-    static async verifyCurrentPassword(userId, identifier, currentPassword) {
-        // Select password AND identifier fields to verify ownership
-        const user = await UserModel.findById(userId).select("+password email mobile");
-        if (!user) throw new Error("Security verification failed. User not found.");
-
-        // Check if the provided identifier matches either the user's email or mobile
-        const isIdentifierMatch = user.email === identifier || user.mobile === identifier;
-
-        if (!isIdentifierMatch) {
-            // Professional tip: Don't be too specific about which part failed for security,
-            // but for a "Change Password" screen, a clear mismatch error is helpful.
-            throw new Error("The Email/Mobile provided does not match our records for this account.");
-        }
-
-        const isMatch = await user.comparePassword(currentPassword);
-        if (!isMatch) throw new Error("The current password you entered is incorrect.");
-
-        // Generate token if everything matches
-        const passwordResetToken = user.generateResetPasswordToken();
-
-        return { passwordResetToken };
-    };
-
-    static async sendOTP({ email }) {
-        if (!email) {
-            throw new Error("Email is required");
-        }
-
-        const user = await UserModel.findOne({ email }).select("+forgotPasswordOTP +forgotPasswordExpires");
-
-        if (!user) {
-            throw new Error("User not found");
-        }
-
-        // Generate OTP (6 digits)
-        const otp = user.generateOTP();
-        // console.log(otp);
-
-        user.forgotPasswordOTP = otp.hashedOtp;
-        user.forgotPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 mins
-        user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
-
-        await user.save({ validateBeforeSave: false });
-
-        return {
-            user,
-            otp
-        };
-    };
-
-    static async verifyOTP({ email, otp }) {
-        if (!email || !otp) {
-            throw new Error("Email and OTP are required");
-        }
-
-        // 1️⃣ Hash OTP
-        const hashedOtp = crypto
-            .createHash("sha256")
-            .update(otp.toString())
-            .digest("hex");
-
-        // 2️⃣ Find user with matching email, OTP, and valid expiry
-        const user = await UserModel.findOne({
-            email,
-            forgotPasswordOTP: hashedOtp,
-            forgotPasswordExpires: { $gt: Date.now() },
-        }).select("+forgotPasswordOTP +forgotPasswordExpires");
-
-        if (!user) {
-            throw new Error("Invalid or expired OTP");
-        }
-
-        // 3️⃣ Clear OTP fields
-        user.forgotPasswordOTP = undefined;
-        user.forgotPasswordExpires = undefined;
-
-        // 4️⃣ Generate reset token (short-lived)
-        const passwordResetToken = user.generateResetPasswordToken();
-
-        await user.save({ validateBeforeSave: false });
-
-        return {
-            passwordResetToken
-        };
-    };
-
-    static async setPassword({ userId, newPassword }) {
-
-        if (!newPassword) {
-            throw new Error("Password is required");
-        }
-
-        const user = await UserModel.findById(userId);
-
-        // Hash password
-        const hashedPassword = await UserModel.hashPassword(newPassword);
-
-        user.password = hashedPassword;
-
-        // Clear reset fields
-        user.passwordResetExpires = undefined;
-
-        // Generate token
-        const refreshToken = user.generateRefreshToken();
-        const accessToken = user.generateAccessToken();
-        user.refreshToken = refreshToken;
-        await user.save();
-
-        return {
-            user: user.name,
-            refreshToken,
-            accessToken,
-            roles: user.roles
-        };
     };
 
     static async updateProfile(userId, payload) {

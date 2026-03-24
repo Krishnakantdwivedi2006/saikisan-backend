@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
 
 const chalakSchema = new mongoose.Schema({
   userId: {
@@ -9,34 +8,28 @@ const chalakSchema = new mongoose.Schema({
     unique: true
   },
 
-  vehicleType: {
-    type: [String],
-    enum: ["tractor", "minitruck", "pickup", "harvestor", "tuck"],
-    required: true,
-    lowercase: true
-  },
-
   availability: {
     type: String,
-    enum: ["online", "offline"],
-    default: "offline"
+    enum: ["ONLINE", "OFFLINE"],
+    default: "OFFLINE"
   },
 
   currentLocation: {
-    // type: {
-    //   type: String,
-    //   enum: ["Point"],
-    //   default: "Point"
-    // },
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point"
+    },
     coordinates: {
       type: [Number], // [longitude, latitude]
       index: "2dsphere"
     }
   },
 
-  isVerified: {
-    type: Boolean,
-    default: false
+  verificationStatus: {
+    type: String,
+    enum: ["pending", "registered", "verified", "rejected", "blocked"],
+    default: "pending"
   },
 
   rating: {
@@ -51,29 +44,16 @@ const chalakSchema = new mongoose.Schema({
     aadhaar: String,
   },
 
-  totalRides: {
+  totalBookings: {
     type: Number,
     default: 0
   },
 
-  earnings: {
+  walletBalance: {
     type: Number,
     default: 0
-  }
-
+  },
 }, { timestamps: true });
-
-chalakSchema.methods.generateAuthToken = function () {
-  const token = jwt.sign(
-    {
-      id: this._id,
-      role: "chalak"
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "24h" }
-  );
-  return token;
-};
 
 const ChalakModel = mongoose.model("Chalak", chalakSchema);
 

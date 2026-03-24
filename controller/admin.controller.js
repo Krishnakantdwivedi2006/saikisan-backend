@@ -1,8 +1,8 @@
-// controllers/ImplementController.js
-import ImplementServices from "../services/implement.services.js";
+import AdminServices from "../services/admin.services.js";
+import ImplementsModel from "../model/implements.model.js"
 import mongoose from "mongoose";
+class AdminController {
 
-class ImplementController {
     static async addImplement(req, res) {
         try {
             // 1. Basic body check
@@ -10,7 +10,7 @@ class ImplementController {
                 return res.status(400).json({ success: false, message: "Request body cannot be empty" });
             }
 
-            const result = await ImplementServices.create(req.body);
+            const result = await AdminServices.create(req.body);
             return res.status(201).json({
                 success: true,
                 message: "Equipment implement added successfully",
@@ -33,7 +33,7 @@ class ImplementController {
                 return res.status(400).json({ success: false, message: "Invalid Implement ID format" });
             }
 
-            const updated = await ImplementServices.update(id, req.body);
+            const updated = await AdminServices.update(id, req.body);
             if (!updated) {
                 return res.status(404).json({ success: false, message: "Implement not found" });
             }
@@ -56,7 +56,7 @@ class ImplementController {
                 return res.status(400).json({ success: false, message: "Invalid ID format" });
             }
 
-            const deleted = await ImplementServices.delete(id);
+            const deleted = await AdminServices.delete(id);
             if (!deleted) {
                 return res.status(404).json({ success: false, message: "Record not found" });
             }
@@ -70,19 +70,39 @@ class ImplementController {
         }
     }
 
+    // AdminController.js
     static async getImplements(req, res) {
         try {
+            const { category } = req.query;
+            console.log("category", category);
             
-            const data = await ImplementServices.getAll(req.query);
+            let query = {};
+
+            // If categories are provided (e.g., "Sowing,Ploughing")
+            if (category) {
+                const categoryArray = category.split(',').map(c => c.trim());
+                // Use $in operator to find any matches within the array
+                query.category = { $in: categoryArray };
+            }
+
+            const data = await ImplementsModel.find(query)
+                .sort({ createdAt: -1 }); // Industry standard: newest first
+
             return res.status(200).json({
                 success: true,
                 count: data.length,
                 data: data
             });
         } catch (error) {
-            return res.status(500).json({ success: false, message: error.message });
+            console.error("Fetch Implements Error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Internal Server Error"
+            });
         }
     }
+
+
 }
 
-export default ImplementController;
+export default AdminController;
