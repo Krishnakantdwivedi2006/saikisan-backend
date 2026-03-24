@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "build": "npm install --legacy-peer-deps"
+    "build": "echo Build complete"
   },
   "keywords": [
     "nodejs",
@@ -19,7 +19,7 @@
   "author": "Krishna kant dwivedi",
   "license": "ISC",
   "dependencies": {
-    "cloudinary": "^2.9.0",
+    "cloudinary": "^1.41.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
@@ -38,7 +38,7 @@
   "devDependencies": {
     "nodemon": "^3.1.0"
   },
-  "engines": {
-    "node": ">=18"
-  }
+ "engines": {
+  "node": "18.x"
+}
 }
