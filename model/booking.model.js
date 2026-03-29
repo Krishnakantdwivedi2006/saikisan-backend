@@ -31,6 +31,40 @@ const bookingSchema = new mongoose.Schema(
       }
     ],
 
+    serviceType: {
+      type: String,
+      enum: ["field_work", "transport"],
+      required: true
+    },
+
+    transportDetails: {
+      pickupLocation: {
+        address: String,
+        location: {
+          type: {
+            type: String,
+            enum: ["Point"],
+            default: "Point"
+          },
+          coordinates: [Number]
+        }
+      },
+      dropLocation: {
+        address: String,
+        location: {
+          type: {
+            type: String,
+            enum: ["Point"],
+            default: "Point"
+          },
+          coordinates: [Number]
+        }
+      },
+      loadType: String, // crops, sand, goods
+      weight: Number,
+      distance: Number
+    },
+
     fieldLocation: {
       address: String,
       location: {
@@ -49,7 +83,6 @@ const bookingSchema = new mongoose.Schema(
       {
         area: {
           type: Number,
-          required: true
         },
         // We use a GeoJSON Polygon structure for the coordinates
         location: {
@@ -98,9 +131,10 @@ const bookingSchema = new mongoose.Schema(
 
     paymentMethod: {
       type: String,
-      enum: ["upi", "razorepay", "card", "wallet", "cash", "scan_pay","wallet_full"],
+      enum: ["upi", "razorepay", "card", "wallet", "cash", "scan_pay", "wallet_full"],
       required: true,
     },
+
     paymentId: {
       type: String
     },
@@ -166,12 +200,26 @@ const bookingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// bookingSchema.pre("save", function (next) {
-//   if (this.paymentMode === "cash" && this.saikisanCoinUsed > 0) {
-//     return next(new Error("Saikisan Coin can only be used for online payments"));
-//   }
-//   next();
-// });
+bookingSchema.pre("save", function (next) {
+  if (this.paymentMode === "cash" && this.saikisanCoinUsed > 0) {
+    return next(new Error("Saikisan Coin can only be used for online payments"));
+  }
+});
+
+bookingSchema.pre("save", function (next) {
+  if (this.serviceType === "field_work") {
+    if (!this.fieldDetails || this.fieldDetails.length === 0) {
+      return next(new Error("Field details required for field work"));
+    }
+  }
+
+  if (this.serviceType === "transport") {
+    if (!this.transportDetails?.pickupLocation || !this.transportDetails?.dropLocation) {
+      return next(new Error("Transport details required"));
+    }
+  }
+
+});
 
 bookingSchema.index({ "fieldDetails.location": "2dsphere" });
 

@@ -7,29 +7,30 @@ class UserController {
     static refreshSession = async (req, res) => {
         try {
             const { refreshToken } = req.body;
-
             if (!refreshToken) {
-                return res.status(401).json({ message: "No token provided" });
+                return res.status(401).json({ status: 'error', code: 'MISSING_TOKEN', message: "No token provided" });
             }
 
-            // 1. Verify and decode FIRST to get the appType
+            // Verify here to catch expiry before calling service
             const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-            const appType = decoded.appType;
 
-            // 2. Pass appType to the service
-            const tokens = await UserServices.refreshSessionService(refreshToken, appType);
-
-            return res.status(200).json(tokens);
+            const tokens = await UserServices.refreshSessionService(refreshToken, decoded);
+            return res.status(200).json({ status: 'success', data: tokens });
         } catch (error) {
-            const authErrorNames = ["TokenExpiredError", "JsonWebTokenError"];
-            const authErrorMessages = ["TOKEN_NOT_FOUND", "USER_NOT_FOUND", "TOKEN_BLACKLISTED"];
+            // Industry Standard: Specific error codes for frontend logic
+            const isAuthError = ["TokenExpiredError", "JsonWebTokenError"].includes(error.name) ||
+                ["NO_REFRESH_TOKEN", "USER_NOT_FOUND"].includes(error.message);
 
-            if (authErrorNames.includes(error.name) || authErrorMessages.includes(error.message)) {
-                return res.status(401).json({ message: "Session expired. Please login again." });
+            if (isAuthError) {
+                return res.status(401).json({
+                    status: 'error',
+                    code: 'SESSION_EXPIRED',
+                    message: "Session expired. Please login again."
+                });
             }
 
-            console.error("Internal Refresh Error:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            console.error("Critical Refresh Error:", error);
+            return res.status(500).json({ status: 'error', code: 'SERVER_ERROR', message: "Internal server error" });
         }
     };
 
@@ -71,13 +72,14 @@ class UserController {
 
     static verifyLoginOTP = async (req, res) => {
         const errors = validationResult(req);
-        console.log(errors);
 
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
         try {
-            const { phone, otpCode, deviceInfo } = req.body;
+            const { phone, otpCode, deviceInfo, coordinates } = req.body;
+            console.log("verify otp: ", req.body);
+
 
             if (!phone || !otpCode) {
                 return res.status(400).json({
@@ -105,16 +107,16 @@ class UserController {
             }
 
             // 2. Create / login session
-            const session = await UserServices.handleUserSession({
+            const sessionData = await UserServices.handleUserSession({
                 phone,
-                deviceInfo
+                deviceInfo,
+                coordinates
             });
 
             return res.status(200).json({
                 success: true,
-                isVerified: session.isVerified,
                 message: "Verification successfull",
-                ...session
+                ...sessionData
             });
 
         } catch (error) {
@@ -240,8 +242,6 @@ class UserController {
             const userId = req.user.id;
             const payload = req.body;
             console.log(payload);
-
-
             const result = await UserServices.updateProfile(userId, payload);
 
             return res.status(200).json({

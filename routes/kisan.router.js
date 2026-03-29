@@ -13,18 +13,18 @@ const authorize = (role) => {
     };
 };
 
-kisanRoute.put("/current-location", authUser("kisan"), KisanController.updateLocation);
+kisanRoute.put("/current-location", authUser("kisan"), authKisan, KisanController.updateLocation);
 
-kisanRoute.post("/wishlist-field", authUser("kisan"), KisanController.wishlistField);
+kisanRoute.post("/wishlist-field", authUser("kisan"), authKisan, KisanController.wishlistField);
 
-kisanRoute.delete("/address/:addressId", authUser("kisan"), KisanController.removeSavedAddress);
+kisanRoute.delete("/address/:addressId", authUser("kisan"), authKisan, KisanController.removeSavedAddress);
 
-kisanRoute.get("/bookings", authUser("kisan"), KisanController.getMyBookings);
+kisanRoute.get("/bookings", authUser("kisan"), authKisan, KisanController.getMyBookings);
 
-kisanRoute.get("/wallet", authUser("kisan"), KisanController.getWalletBalance);
+kisanRoute.get("/wallet", authUser("kisan"), authKisan, KisanController.getWalletBalance);
 
-kisanRoute.post("/update-balance", authUser("kisan"),authKisan, KisanController.updateWalletBalance);
+kisanRoute.post("/update-balance", authUser("kisan"), authKisan, KisanController.updateWalletBalance);
 
-kisanRoute.delete("/deactivate", authUser("kisan"), KisanController.deactivateAccount);
+kisanRoute.delete("/deactivate", authUser("kisan"), authKisan, KisanController.deactivateAccount);
 
 export default kisanRoute;

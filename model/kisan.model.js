@@ -7,9 +7,14 @@ const kisanSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    fcmToken: {
+        type: String,
+        default: null
+    },
     walletBalance: {
         type: Number,
         default: 0
+        
     },
     saikisanCoin: {
         type: Number,

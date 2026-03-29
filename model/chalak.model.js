@@ -8,6 +8,11 @@ const chalakSchema = new mongoose.Schema({
     unique: true
   },
 
+  fcmToken: {
+    type: String,
+    default: null
+  },
+
   availability: {
     type: String,
     enum: ["ONLINE", "OFFLINE"],
@@ -21,8 +26,8 @@ const chalakSchema = new mongoose.Schema({
       default: "Point"
     },
     coordinates: {
-      type: [Number], // [longitude, latitude]
-      index: "2dsphere"
+      type: [Number], // [lng, lat]
+      default: [0, 0]
     }
   },
 
@@ -54,6 +59,8 @@ const chalakSchema = new mongoose.Schema({
     default: 0
   },
 }, { timestamps: true });
+
+chalakSchema.index({ currentLocation: '2dsphere' }, { sparse: true });
 
 const ChalakModel = mongoose.model("Chalak", chalakSchema);
 

@@ -64,7 +64,6 @@ class ChalakController {
         }
     }
 
-    // ChalakController.js
     static updateVehicle = async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
