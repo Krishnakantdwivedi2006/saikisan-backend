@@ -1,6 +1,6 @@
 import BookingModel from "../model/booking.model.js";
 import ChalakModel from "../model/chalak.model.js"
-import admin from "../connectons/connectFireBase.js";
+// import admin from "../connectons/connectFireBase.js";
 // import PushService from "../services/push.service.js";
 class BookingController {
 
@@ -136,7 +136,7 @@ class BookingController {
                 token: driver.fcmToken,
             };
 
-            return admin.messaging().send(message);
+            // return admin.messaging().send(message);
         });
 
         try {
