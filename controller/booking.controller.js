@@ -1,7 +1,7 @@
 import BookingModel from "../model/booking.model.js";
 import ChalakModel from "../model/chalak.model.js"
 import admin from "../connectons/connectFireBase.js";
-import PushService from "../services/push.service.js";
+// import PushService from "../services/push.service.js";
 class BookingController {
 
     static createBooking = async (req, res) => {
