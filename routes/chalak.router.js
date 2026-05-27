@@ -7,6 +7,8 @@ import authChalak from "../middlewares/authChalak.middleware.js";
 import TransactionController from "../controller/transaction.controller.js";
 const chalakRoute = express.Router();
 
+chalakRoute.get("/refresh-profile", authUser("chalak"), authChalak, ChalakController.refreshProfile);
+
 chalakRoute.post(
   "/add-vehicle", upload.fields([
     { name: "rcImage", maxCount: 1 },
@@ -79,7 +81,8 @@ chalakRoute.get("/fetch-balance", authUser("chalak"), authChalak, ChalakControll
 
 chalakRoute.post("/update-balance", authUser("chalak"), authChalak, ChalakController.updateWalletBalance);
 
-chalakRoute.get("/transactions", authUser("chalak"), authChalak, TransactionController.getTransactions)
+chalakRoute.get("/transactions", authUser("chalak"), authChalak, TransactionController.getTransactions);
 
+chalakRoute.post("/accept-booking/:bookingId", authUser("chalak"), authChalak, ChalakController.acceptBooking);
 
 export default chalakRoute;

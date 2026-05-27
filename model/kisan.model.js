@@ -121,6 +121,6 @@ const kisanSchema = new mongoose.Schema({
 kisanSchema.index({ currentLocation: "2dsphere" });
 kisanSchema.index({ "wishlistFields.polygon": "2dsphere" });
 
-const KisanModel = mongoose.model("kisan", kisanSchema);
+const KisanModel = mongoose.model("Kisan", kisanSchema);
 
 export default KisanModel;

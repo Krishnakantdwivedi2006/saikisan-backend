@@ -5,6 +5,24 @@ import { validationResult } from "express-validator";
 
 class ChalakController {
 
+    static refreshProfile = async (req, res) => {
+        try {
+            const chalakId = req.chalakId;
+            const updatedChalak = await ChalakServices.refreshProfile(chalakId);
+            console.log("Updated Chalak Profile:", updatedChalak); // Debug log
+            res.status(200).json({
+                data: updatedChalak,
+            });
+
+        } catch (error) {
+            console.error("Refresh Profile Error:", error);
+            res.status(500).json({
+                success: false,
+                message: "Internal Server Error"
+            });
+        }
+    };
+
     static addVehicle = async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -259,7 +277,7 @@ class ChalakController {
 
         } catch (error) {
             console.log(error.message);
-            
+
             return res.status(error.statusCode || 500).json({
                 success: false,
                 message: error.message || "Internal Server Error"
@@ -305,20 +323,50 @@ class ChalakController {
 
     static acceptBooking = async (req, res) => {
         try {
-            const booking = await BookingModel.findOneAndUpdate(
-                { _id: req.params.bookingId, status: "REQUESTED" },
-                { status: "ACCEPTED", chalakId: req.user.id },
+            const { bookingId } = req.params;
+            const { accept } = req.body;
+
+            // 1️⃣ Find booking that is still available
+            const booking = await BookingModel.findOne({
+                _id: bookingId,
+                status: "REQUESTED"
+            });
+
+            if (!booking) {
+                return res.status(400).json({
+                    message: "Booking already taken or expired"
+                });
+            }
+
+            // 2️⃣ If chalak DENIES
+            if (accept === false) {
+                return res.json({
+                    message: "Booking ignored"
+                });
+            }
+
+            // 3️⃣ Atomic update → prevent 2 chalaks accepting
+            const updatedBooking = await BookingModel.findOneAndUpdate(
+                { _id: bookingId, status: "REQUESTED" }, // race-condition lock
+                {
+                    status: "ACCEPTED",
+                    chalakId: req.chalakId,
+                    acceptedAt: new Date()
+                },
                 { new: true }
             );
 
-            if (!booking || booking.status !== "REQUESTED") {
-                return res.status(400).json({ message: "Invalid state" });
+            if (!updatedBooking) {
+                return res.status(409).json({
+                    message: "Another chalak already accepted this booking"
+                });
             }
 
-            booking.status = "ACCEPTED";
-            await booking.save();
+            res.json({
+                message: "Booking accepted successfully",
+                booking: updatedBooking
+            });
 
-            res.json({ message: "Booking accepted" });
         } catch (err) {
             res.status(500).json({ message: err.message });
         }

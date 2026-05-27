@@ -14,10 +14,8 @@ const sanitize = (doc) => {
     if (!doc) return null;
     const obj = doc.toObject({ getters: true });
     delete obj.__v;
-    delete obj.updatedAt;
     return obj;
 };
-
 
 class UserServices {
 
@@ -88,107 +86,102 @@ class UserServices {
         }
     };
 
-    // static async handleUserSession({ phone, deviceInfo }) {
+    // static handleUserSession = async ({ phone, deviceInfo, coordinates }) => {
     //     const { appType, fcmToken } = deviceInfo;
 
-    //     const clean = (doc) => {
-    //         if (!doc) return null;
-    //         const obj = doc.toObject();
-    //         delete obj.__v;
-    //         delete obj.createdAt;
-    //         delete obj.updatedAt;
-    //         return obj;
-    //     };
-
-    //     // 1. Check/Create base User
-    //     let user = await UserModel.findOne({ mobile: phone, status: "verified" });
-
-    //     if (user && user.status === "blocked") {
-    //         const error = new Error("Your account has been blocked.");
-    //         error.statusCode = 403;
-    //         throw error;
+    //     if (!["chalak", "kisan"].includes(appType)) {
+    //         throw new Error("Invalid app type", 400);
     //     }
 
-    //     if (!user) {
-    //         user = await UserModel.create({
-    //             mobile: phone,
-    //             roles: ["user", appType === "kisan" ? "kisan" : "chalak"],
-    //             status: "pending"
-    //         });
+    //     // 🟢 STEP 1 — UPSERT USER (Atomic)
+    //     const user = await UserModel.findOneAndUpdate(
+    //         { mobile: phone },
+    //         {
+    //             $setOnInsert: {
+    //                 mobile: phone,
+    //                 status: "pending"
+    //             },
+    //             $addToSet: {
+    //                 roles: { $each: ["user", appType] }
+    //             }
+    //         },
+    //         {
+    //             new: true,
+    //             upsert: true
+    //         }
+    //     );
+
+    //     // 🚫 BLOCK CHECK
+    //     if (user.status === "blocked") {
+    //         throw new Error("Your account has been blocked", 403);
     //     }
 
     //     const isVerified = user.status === "verified";
-    //     let roleProfile = null;
 
-    //     // 2. Handle Role-Specific Profile (Chalak or Kisan)
-    //     if (appType === "chalak") {
-    //         roleProfile = await ChalakModel.findOne({ userId: user._id });
-    //         if (!roleProfile) {
-    //             // User exists but is new to the Chalak app -> Create Profile
-    //             roleProfile = await ChalakModel.create({
+    //     // 🟢 STEP 2 — UPSERT ROLE PROFILE (Atomic)
+    //     const RoleModel = ROLE_MODEL[appType];
+
+    //     const roleProfile = await RoleModel.findOneAndUpdate(
+    //         { userId: user._id },
+    //         {
+    //             $setOnInsert: {
     //                 userId: user._id,
-    //                 fcmToken: fcmToken,
     //                 verificationStatus: "pending",
-    //             });
-    //             // Also ensure the role is added to the User document if not already there
-    //             if (!user.roles.includes("chalak")) {
-    //                 user.roles.push("chalak");
-    //                 await user.save();
-    //             }
-    //         } else {
-    //             // UPDATED: Sync token if profile already exists
-    //             roleProfile.fcmToken = fcmToken;
-    //             await roleProfile.save();
+    //                 currentLocation: coordinates ? { type: "Point", coordinates } : undefined
+    //             },
+    //             $set: { fcmToken }
+    //         },
+    //         {
+    //             new: true,
+    //             upsert: true
     //         }
-    //     } else if (appType === "kisan") {
-    //         roleProfile = await KisanModel.findOne({ userId: user._id });
-    //         if (!roleProfile) {
-    //             // User exists but is new to the Kisan app -> Create Profile
-    //             roleProfile = await KisanModel.create({
-    //                 userId: user._id,
-    //                 fcmToken: fcmToken,
-    //                 verificationStatus: "pending",
-    //             });
-    //             if (!user.roles.includes("kisan")) {
-    //                 user.roles.push("kisan");
-    //                 await user.save();
-    //             }
-    //         } else {
-    //             // UPDATED: Sync token if profile already exists
-    //             roleProfile.fcmToken = fcmToken;
-    //             await roleProfile.save();
-    //         }
+    //     );
+
+    //     // 🚫 ROLE BLOCK CHECK
+    //     if (roleProfile.verificationStatus === "blocked") {
+    //         throw new Error("Your profile for this app is blocked", 403);
     //     }
 
-    //     // 3. Blocked Status Check for specific role
-    //     if (roleProfile?.verificationStatus === "blocked") {
-    //         const error = new Error("Your profile for this app is blocked.");
-    //         error.statusCode = 403;
-    //         throw error;
-    //     }
-
-    //     // 4. Token Generation
+    //     // 🟢 STEP 3 — GENERATE TOKENS
     //     const accessToken = user.generateAccessToken(appType);
     //     const refreshToken = user.generateRefreshToken(appType);
 
+    //     // 🟢 STEP 4 — CREATE DEVICE SESSION
     //     await AuthSessionModel.create({
     //         ...deviceInfo,
-    //         userId: user._id,
-    //         accessToken,
-    //         refreshToken,
-    //     });
-
-    //     return {
-    //         isVerified,
-    //         user: {
-    //             ...user.toObject({ transform: (doc, ret) => { delete ret.__v; return ret; } }),
-    //             roleProfile: roleProfile
-    //         },
-    //         verificationStatus: roleProfile?.verificationStatus || "pending",
+    //         userId: roleProfile._id,
+    //         appType,
     //         accessToken,
     //         refreshToken
+    //     });
+
+    //     // 🟢 STEP 5 — SANITIZE DATA
+    //     const cleanUser = sanitize(user);
+    //     const cleanProfile = sanitize(roleProfile);
+
+    //     // 🟢 STEP 6 — PERFECT RESPONSE CONTRACT
+    //     return {
+    //         session: {
+    //             appType,
+    //             isVerified,
+    //             verificationStatus: cleanProfile.verificationStatus
+    //         },
+
+    //         user: {
+    //             id: cleanUser._id,
+    //             name: cleanUser.name || appType,
+    //             mobile: cleanUser.mobile,
+    //             roles: cleanUser.roles,
+    //         },
+
+    //         profile: cleanProfile,
+
+    //         tokens: {
+    //             accessToken,
+    //             refreshToken
+    //         }
     //     };
-    // }
+    // };
 
     static handleUserSession = async ({ phone, deviceInfo, coordinates }) => {
         const { appType, fcmToken } = deviceInfo;
@@ -241,6 +234,14 @@ class UserServices {
             }
         );
 
+        let todaysBookings = 0;
+        let todaysEarnings = 0;
+        if (appType === 'chalak') {
+            // Call the method you defined in the schema
+            todaysBookings = await roleProfile.getTodaysStats();
+            todaysEarnings = await roleProfile.getTodaysEarnings();
+        }
+
         // 🚫 ROLE BLOCK CHECK
         if (roleProfile.verificationStatus === "blocked") {
             throw new Error("Your profile for this app is blocked", 403);
@@ -261,7 +262,11 @@ class UserServices {
 
         // 🟢 STEP 5 — SANITIZE DATA
         const cleanUser = sanitize(user);
-        const cleanProfile = sanitize(roleProfile);
+        const cleanProfile = {
+            ...sanitize(roleProfile),
+            todaysBookings,
+            todaysEarnings
+        };
 
         // 🟢 STEP 6 — PERFECT RESPONSE CONTRACT
         return {
@@ -286,70 +291,6 @@ class UserServices {
             }
         };
     };
-
-    // static completeUserProfile = async (
-    //     userId,
-    //     profileData,
-    //     coordinates,
-    //     deviceInfo
-    // ) => {
-
-    //     const { appType } = deviceInfo;
-
-    //     if (profileData.dob) {
-    //         const dobDate = new Date(profileData.dob);
-    //         dobDate.setUTCHours(0, 0, 0, 0);
-    //         profileData.dob = dobDate;
-    //     }
-
-    //     // 1️⃣ Update User Profile
-    //     const user = await UserModel.findByIdAndUpdate(
-    //         userId,
-    //         {
-    //             $set: {
-    //                 ...profileData,
-    //                 status: "verified"
-    //             },
-    //             $addToSet: {
-    //                 roles: appType
-    //             }
-    //         },
-    //         { new: true, runValidators: true }
-    //     ).select("-__v");
-
-    //     if (!user) {
-    //         throw { status: 404, message: "User not found" };
-    //     }
-
-    //     let roleProfile = null;
-
-    //     const updateData = {
-    //         userId,
-    //         currentLocation: { type: "Point", coordinates },
-    //         status: appType === "chalak" ? "pending" : "verified"
-    //     };
-
-    //     // 2️⃣ Role specific profile
-    //     if (appType === "kisan") {
-    //         roleProfile = await KisanModel.findOneAndUpdate({ userId }, { $set: updateData }, { upsert: true, new: true }).select("-__v");
-    //     } else if (appType === "chalak") {
-    //         roleProfile = await ChalakModel.findOneAndUpdate({ userId }, { $set: updateData }, { upsert: true, new: true }).select("-__v");
-    //     }
-
-    //     const accessToken = user.generateAccessToken(appType);
-    //     const refreshToken = user.generateRefreshToken(appType);
-
-    //     return {
-    //         user: {
-    //             ...user.toObject(),
-    //             roleProfile: roleProfile
-    //         },
-    //         tokens: {
-    //             accessToken,
-    //             refreshToken
-    //         }
-    //     };
-    // };
 
     static completeUserProfile = async (
         userId,
@@ -465,8 +406,8 @@ class UserServices {
         // Attempt to delete the session
         const deletedSession = await AuthSessionModel.findOneAndDelete({
             userId: userId,
-            accessToken: accessToken,
-            appType: appType
+            appType: appType,
+            accessToken: accessToken
         });
 
         // If no session was found to delete, we return false
@@ -509,6 +450,19 @@ class UserServices {
         if (!user) throw new Error("User not found");
 
         return cleanUser;
+    };
+
+    static async updateFCMToken(userId, appType, fcmToken) {
+        const RoleModel = ROLE_MODEL[appType];
+        const updatedProfile = await RoleModel.findOneAndUpdate(
+            { userId },
+            { $set: { fcmToken } },
+            { new: true }
+        );
+        if (!updatedProfile) {
+            throw new Error("Profile not found for FCM update");
+        }
+        return true;
     };
 
 }

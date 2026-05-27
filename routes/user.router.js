@@ -52,4 +52,6 @@ userRoute.post("/logout", authUser(["chalak", "kisan"]), UserController.logoutUs
 
 userRoute.put("/update-profile", authUser(["chalak", "kisan"]), UserController.updateProfile);
 
+userRoute.post("/update-fcm-token", authUser(["chalak", "kisan"]), UserController.updateFCMToken);
+
 export default userRoute;

@@ -1,5 +1,6 @@
 import KisanModel from "../model/kisan.model.js";
-import TransactionService from "../services/transactions.services.js"
+import TransactionService from "../services/transactions.services.js";
+import SoilTestingModel from "../model/soilTesting.model.js";
 import mongoose from "mongoose";
 
 class KisanServices {
@@ -93,7 +94,7 @@ class KisanServices {
         };
     };
 
-     static updateBalance = async (kisanId, amount, type, reason, description = "", referenceId = null, referenceModel = null) => {
+    static updateBalance = async (kisanId, amount, type, reason, description = "", referenceId = null, referenceModel = null) => {
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -130,7 +131,59 @@ class KisanServices {
         }
     }
 
+    static requestSoilTesting = async (data, kisanId) => {
+        try {
+            const {
+                name,
+                phone,
+                alternativeMobile,
+                village,
+                city,
+                state,
+                pincode,
+                latitude,
+                longitude
+            } = data;
 
-}
+            const soilTesting = new SoilTestingModel({
+                kisanId: kisanId,
+                kisanName: name,
+                mobile: phone,
+                alternativeMobile: alternativeMobile,
+                location: {
+                    type: "Point",
+                    coordinates: [longitude, latitude], // MongoDB uses [Lng, Lat] order
+                    address: {
+                        village: village,
+                        city: city,
+                        state: state,
+                        pincode: pincode
+                    }
+                },
+                status: "REQUESTED"
+            });
+
+            await soilTesting.save();
+            return soilTesting;
+        } catch (error) {
+            console.error("Service Error:", error);
+            throw error;
+        }
+    };
+
+    static getActiveSoilTesting = async (kisanId) => {
+        try {
+            const activeTests = await SoilTestingModel.find({
+                kisanId: kisanId,
+                status: { $in: ["REQUESTED", "APPROVED"] }
+            }).sort({ createdAt: -1 });
+            return activeTests;
+        }
+        catch (error) {
+            console.error("Service Error:", error);
+            throw error;
+        }
+    };
+};
 
 export default KisanServices;

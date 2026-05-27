@@ -202,7 +202,7 @@ class UserController {
             const accessToken = authHeader?.split(" ")[1];
 
             // req.user comes from your authUser middleware
-            const { appType, id } = req.user;
+            const { appType } = req.user;
 
             if (!accessToken || !appType) {
                 return res.status(400).json({
@@ -211,6 +211,7 @@ class UserController {
                 });
             }
 
+            const id = appType === "kisan" ? req.kisanId : req.chalakId;
             // Call the service and capture the result
             const result = await UserServices.logout(id, accessToken, appType);
 
@@ -248,6 +249,32 @@ class UserController {
                 success: true,
                 message: "Profile updated successfully",
                 data: result,
+            });
+
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Update failed",
+            });
+        }
+    };
+
+    static updateFCMToken = async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const { fcmToken, deviceInfo } = req.body;
+            const result = await UserServices.updateFCMToken(userId, fcmToken, deviceInfo);
+
+            if (!result) {
+                return res.status(404).json({
+                    success: false,
+                    message: "User session not found. FCM token update failed.",
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: "FCM token updated successfully",
             });
 
         } catch (error) {

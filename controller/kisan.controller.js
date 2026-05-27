@@ -26,6 +26,28 @@ class KisanController {
     }
   };
 
+  static getProfile = async (req, res) => {
+    try {
+      const userId = req.auth.id;
+
+      const kisan = await KisanModel.findOne({ userId });
+
+      if (!kisan) {
+        return res.status(404).json({
+          message: "Kisan not found"
+        });
+      }
+
+      res.json({
+        message: "Profile retrieved",
+        data: kisan
+      });
+
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  };
+
   // controllers/KishanController.js
   static updateLocation = async (req, res) => {
     try {
@@ -64,10 +86,8 @@ class KisanController {
   static wishlistField = async (req, res) => {
     try {
       const userId = req.user.id;
-      console.log(userId);
-
-
       const { area, polygon } = req.body;
+      console.log("Wishlist Request Body:", req.body);
 
       // ---------- Basic validation ----------
       if (!area || !polygon || !polygon.coordinates) {
@@ -147,6 +167,27 @@ class KisanController {
       });
     }
   };
+
+  static getWishlistFields = async (req, res) => {
+    try {
+      const userId = req.user.id;      
+      const kisan = await KisanModel.findOne({ userId }, { wishlistFields: 1 });
+      console.log("Wishlist Fields Retrieved:", kisan ? kisan.wishlistFields : "No kisan found");
+
+      res.status(200).json({
+        success: true,
+        data: kisan.wishlistFields
+      });
+
+    } catch (error) {
+      console.error('Get Wishlist Fields Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  };  
 
   //  Delete Saved Address
   static removeSavedAddress = async (req, res) => {
@@ -256,6 +297,45 @@ class KisanController {
       console.log(error.message);
 
       return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Internal Server Error"
+      });
+    }
+  };
+
+  static requestSoilTesting = async (req, res) => {
+    try {
+      const kisanId = req.kisanId; // Assuming this comes from your auth middleware
+
+      // Pass the body and the ID clearly
+      const soilTesting = await KisanServices.requestSoilTesting(req.body, kisanId);
+
+      res.status(200).json({
+        success: true,
+        message: "Soil testing requested successfully",
+        data: soilTesting
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Internal Server Error"
+      });
+    }
+  };
+
+  static getActiveSoilTesting = async (req, res) => {
+    try {
+      const kisanId = req.kisanId;
+      const activeTests = await KisanServices.getActiveSoilTesting(kisanId);
+      console.log("Active Soil Testing Requests:", activeTests);
+
+      res.status(200).json({
+        success: true,
+        message: "Active soil testing requests retrieved successfully",
+        data: activeTests
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || "Internal Server Error"
       });

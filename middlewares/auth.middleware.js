@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import BlacklistTokenModel from "../model/balcklistToken.model.js";
+import ChalakModel from "../model/chalak.model.js";
+import KisanModel from "../model/kisan.model.js";
 
 const authUser = (requiredAppTypes) => async (req, res, next) => {
   try {
@@ -31,13 +33,44 @@ const authUser = (requiredAppTypes) => async (req, res, next) => {
           message: `Access denied. This route requires ${allowedApps.join(" or ")} access.`
         });
       }
-    }  
+    }
+
+    switch (decoded.appType) {
+      case "kisan": {
+        const kisan = await KisanModel.findOne({ userId: decoded.id });
+        if (!kisan) {
+          return res.status(403).json({
+            success: false,
+            message: "Kisan profile not found. Please register as kisan."
+          });
+        }
+        req.kisanId = kisan._id;
+        break;
+      }
+
+      case "chalak": {
+        const chalak = await ChalakModel.findOne({ userId: decoded.id });
+        if (!chalak) {
+          return res.status(403).json({
+            success: false,
+            message: "Chalak profile not found. Please register as chalak."
+          });
+        }
+        req.chalakId = chalak._id;
+        break;
+      }
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "No app type found or invalid app type."
+        });
+    }
 
     req.user = decoded;
-    console.log(decoded);
-    
+
     next();
-  } catch (error) {
+  } catch (error) {    
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };

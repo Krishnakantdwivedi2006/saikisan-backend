@@ -8,6 +8,10 @@ const chalakSchema = new mongoose.Schema({
     unique: true
   },
 
+  name: String,
+  mobile: String,
+  profileImage: String,
+
   fcmToken: {
     type: String,
     default: null
@@ -61,6 +65,43 @@ const chalakSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 chalakSchema.index({ currentLocation: '2dsphere' }, { sparse: true });
+
+chalakSchema.methods.getTodaysStats = async function () {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const count = await mongoose.model("Booking").countDocuments({
+    chalakId: this._id,
+    bookingStatus: "completed",
+    createdAt: { $gte: startOfToday }
+  });
+
+  return count;
+};
+
+chalakSchema.methods.getTodaysEarnings = async function () {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const result = await mongoose.model("Booking").aggregate([
+    {
+      $match: {
+        chalakId: this._id,
+        createdAt: { $gte: startOfToday },
+        bookingStatus: "completed"
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        totalEarnings: { $sum: "$amount" }
+      }
+    }
+  ]);
+
+  return result[0]?.totalEarnings || 0;
+};
+
 
 const ChalakModel = mongoose.model("Chalak", chalakSchema);
 

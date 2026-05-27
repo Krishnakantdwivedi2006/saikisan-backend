@@ -37,6 +37,7 @@ const bookingSchema = new mongoose.Schema(
       required: true
     },
 
+    // For transport bookings
     transportDetails: {
       pickupLocation: {
         address: String,
@@ -65,20 +66,7 @@ const bookingSchema = new mongoose.Schema(
       distance: Number
     },
 
-    fieldLocation: {
-      address: String,
-      location: {
-        type: {
-          type: String,
-          enum: ["Point"],
-          default: "Point"
-        },
-        coordinates: {
-          type: []
-        }
-      }
-    },
-
+    //for field work 
     fieldDetails: [
       {
         area: {
@@ -97,6 +85,20 @@ const bookingSchema = new mongoose.Schema(
         }
       }
     ],
+
+    fieldLocation: {
+      address: String,
+      location: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point"
+        },
+        coordinates: {
+          type: []
+        }
+      }
+    },
 
     // 📅 Scheduling
     bookingDate: {
@@ -120,7 +122,7 @@ const bookingSchema = new mongoose.Schema(
 
     platformFee: {
       type: Number,
-      default: 5
+      default: 0
     },
 
     paymentMode: {
@@ -171,12 +173,13 @@ const bookingSchema = new mongoose.Schema(
     bookingStatus: {
       type: String,
       enum: [
+        "searching",
         "requested",
         "accepted",
         "rejected",
         "on_the_way",
         "in_progress",
-        "comleted",
+        "completed",
         "cancelled"
       ],
       default: "requested",
@@ -195,7 +198,13 @@ const bookingSchema = new mongoose.Schema(
 
     farmerReview: String,
 
-    cancellationReason: String
+    cancellationReason: String,
+    rejectedChalaks: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Chalak"
+      }
+    ],
   },
   { timestamps: true }
 );

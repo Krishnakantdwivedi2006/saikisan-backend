@@ -1,17 +1,19 @@
 import express from "express";
 import BookingController from "../controller/booking.controller.js";
 import authUser from "../middlewares/auth.middleware.js";
-import authKisan from "../middlewares/authKisan.middleware.js";
+import authChalak from "../middlewares/authChalak.middleware.js";
 const BookingRoute = express.Router();
 
-BookingRoute.post("/create-booking", authUser("kisan"), authKisan, BookingController.createBooking);
+BookingRoute.get("/get-all-bookings", authUser(["kisan", "chalak"]), BookingController.getAllBookings);
 
-BookingRoute.get("/get-all-bookings", authUser("kisan"), authKisan, BookingController.getFarmerBookings);
+// BookingRoute.get("/get-chalak-bookings", authUser("chalak"), authChalak, BookingController.getChalakBookings);
 
-BookingRoute.get("/get-booking/:bookingId", authUser("kisan"), authKisan, BookingController.getBookingById);
+BookingRoute.get("/get-booking/:bookingId", authUser(["chalak", "kisan"]), BookingController.getBookingById);
 
-BookingRoute.put("/accept-booking/:bookingId", authUser("chalak"), authKisan, BookingController.acceptBooking);
+BookingRoute.post("/create-booking", authUser("kisan"),  BookingController.createBooking);
 
-BookingRoute.put("/reject-booking/:bookingId", authUser("chalak"), authKisan, BookingController.rejectBooking);
+BookingRoute.put("/chalak-booking-response/:bookingId", authUser("chalak"), authChalak, BookingController.chalakBookingResponse);
+
+BookingRoute.put("/update-booking-status/:bookingId", authUser("chalak"), BookingController.updateBookingStatus);
 
 export default BookingRoute;

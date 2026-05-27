@@ -3,8 +3,35 @@ import ChalakModel from "../model/chalak.model.js";
 import ChalakVehicleModel from "../model/chalakVehicle.model.js";
 import ChalakImplemetModel from "../model/chalakImplements.model.js";
 import TransactionService from "./transactions.services.js";
+import BookingModel from "../model/booking.model.js";
 
 class ChalakServices {
+
+    static refreshProfile = async (chalakId) => {
+        const chalakDoc = await ChalakModel.findById(chalakId);
+
+        if (!chalakDoc) {
+            const error = new Error("Chalak not found");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // 2. Use the Instance Methods defined in your Schema
+        // Running these in parallel with Promise.all saves execution time
+        const [todaysBookingsCount, todaysEarningsSum] = await Promise.all([
+            chalakDoc.getTodaysStats(),
+            chalakDoc.getTodaysEarnings()
+        ]);
+
+        // 3. Return combined data
+        // We manually pick fields or use toObject() to avoid sending the whole Mongoose doc
+        return {
+            rating: chalakDoc.rating,
+            totalBookings: chalakDoc.totalBookings,
+            todaysBookings: todaysBookingsCount,
+            todaysEarnings: todaysEarningsSum,
+        };
+    }
 
     static addVehicle = async (params) => {
         // 1. Create the vehicle record
